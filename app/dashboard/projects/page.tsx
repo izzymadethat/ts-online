@@ -95,9 +95,11 @@ export default async function ProjectsPage() {
               className="flex items-center justify-between p-4"
             >
               <div>
-                <h2 className="font-semibold text-xl text-primary">
-                  {project.title}
-                </h2>
+                <Link href={`/dashboard/projects/${project.id}`}>
+                  <h2 className="font-semibold text-xl text-primary">
+                    {project.title}
+                  </h2>
+                </Link>
                 <p>
                   {" "}
                   Created{" "}
