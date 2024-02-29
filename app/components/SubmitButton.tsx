@@ -1,7 +1,8 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
+import { Loader2, Trash } from "lucide-react";
 import { useFormStatus } from "react-dom";
 
 export function SubmitButton() {
@@ -10,11 +11,29 @@ export function SubmitButton() {
     <>
       {pending ? (
         <Button disabled className="w-fit">
-          <Loader2 className="mr-2 w-4 h-4 animate-pulse" /> Syncing...
+          <Loader2 className="mr-2 w-4 h-4 animate-spin" /> Syncing...
         </Button>
       ) : (
         <Button type="submit" className="w-fit">
           Save Changes
+        </Button>
+      )}
+    </>
+  );
+}
+
+export function DeleteButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <>
+      {pending ? (
+        <Button variant="destructive" size="icon" disabled className="w-fit">
+          <Loader2 className="w-4 h-4 animate-spin" /> Deleting your account...
+        </Button>
+      ) : (
+        <Button type="submit" variant="destructive" className="w-fit">
+          Delete My Account
         </Button>
       )}
     </>
@@ -47,6 +66,42 @@ export function StripePortal() {
         </Button>
       ) : (
         <Button type="submit">Manage Subscription</Button>
+      )}
+    </>
+  );
+}
+
+export function SubmitNewProjectButton() {
+  const { pending } = useFormStatus();
+  return (
+    <>
+      {pending ? (
+        <Button disabled className="w-fit">
+          <Loader2 className="mr-2 w-4 h-4 animate-spin" /> Creating New
+          Project...
+        </Button>
+      ) : (
+        <Button type="submit" className="w-fit">
+          Create Project
+        </Button>
+      )}
+    </>
+  );
+}
+
+export function DeleteProjectButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <>
+      {pending ? (
+        <Button variant="destructive" size="icon" disabled>
+          <Loader2 className="w-4 h-4 animate-spin" />
+        </Button>
+      ) : (
+        <Button variant="destructive" size="icon" type="submit">
+          <Trash className="w-4 h-4" />
+        </Button>
       )}
     </>
   );

@@ -4,7 +4,6 @@ import { stripe } from "@/app/lib/stripe";
 import { headers } from "next/headers";
 import Stripe from "stripe";
 import prisma from "@/app/lib/db";
-import { use } from "react";
 
 export async function POST(req: Request) {
   const body = await req.text();
