@@ -35,6 +35,9 @@ async function getData({
       title: true,
       description: true,
       id: true,
+      isActive: true,
+      dueDate: true,
+      projectCost: true,
     },
   });
 
@@ -61,6 +64,8 @@ export default async function EditProjectPage({
 
     const title = formData.get("title") as string;
     const desc = formData.get("description") as string;
+    const cost = Number(formData.get("project-cost"));
+    const date = formData.get("due-date");
 
     await prisma.project.update({
       where: {
@@ -70,6 +75,8 @@ export default async function EditProjectPage({
       data: {
         title: title,
         description: desc,
+        projectCost: cost,
+        dueDate: String(date) || null,
       },
     });
 
@@ -104,6 +111,23 @@ export default async function EditProjectPage({
               name="description"
               placeholder="Describe the project. 200 characters max"
               defaultValue={data?.description}
+            />
+          </div>
+          <div className="flex flex-col gap-y-2">
+            <Label>Project Cost</Label>
+            <Input
+              name="project-cost"
+              placeholder="0"
+              type="number"
+              defaultValue={data?.projectCost ?? 0}
+            />
+          </div>
+          <div className="flex flex-col gap-y-2">
+            <Label>Expected Date</Label>
+            <Input
+              name="due-date"
+              type="date"
+              defaultValue={String(data?.dueDate) ?? ""}
             />
           </div>
         </CardContent>

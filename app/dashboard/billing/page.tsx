@@ -64,14 +64,10 @@ export default async function BillingPage() {
 
   const data = await GetPaymentData(user?.id as string);
 
-  async function createSubscription({
-    plan,
-    period,
-  }: {
-    plan: string;
-    period: string;
-  }) {
+  async function createSubscription(formData: FormData) {
     "use server";
+
+    const planId = formData.get("priceId");
 
     const dbUser = await prisma.user.findUnique({
       where: {
@@ -86,21 +82,10 @@ export default async function BillingPage() {
     if (!dbUser?.stripeCustomerId)
       throw new Error("Stripe Customer ID not found");
 
-    let priceId;
-    if (plan === "professional" && period === "monthly") {
-      priceId = process.env.NEXT_TRAKSYNC_PRO_MONTHLY_PRICE_ID as string;
-    } else if (plan === "professional" && period === "yearly") {
-      priceId = process.env.NEXT_TRAKSYNC_PRO_YEARLY_PRICE_ID as string;
-    } else if (plan === "enterprise" && period === "monthly") {
-      priceId = process.env.NEXT_TRAKSYNC_ENTERPRISE_MONTHLY_PRICE_ID as string;
-    } else if (plan === "enterprise" && period === "yearly") {
-      priceId = process.env.NEXT_TRAKSYNC_ENTERPRISE_YEARLY_PRICE_ID as string;
-    }
-
     const subscriptionUrl = await getStripeSession({
       customerId: dbUser.stripeCustomerId,
       domainUrl: "http://localhost:3000",
-      priceId: priceId as string,
+      priceId: planId as string,
     });
 
     return redirect(subscriptionUrl);
@@ -133,7 +118,7 @@ export default async function BillingPage() {
             <CardTitle>Edit Subscription</CardTitle>
             <CardDescription>
               Click the button below to change your payment details, view your
-              statements, or update your subscription status s
+              statements, or update your subscription status
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -166,7 +151,7 @@ export default async function BillingPage() {
             </TabsList>
             <TabsContent value="monthly" className="flex gap-x-4">
               {pricingInformation.monthly.map((price) => (
-                <>
+                <div key={price.priceId}>
                   <Card className="flex flex-col">
                     <CardContent className="py-8">
                       <div>
@@ -197,28 +182,33 @@ export default async function BillingPage() {
                         ))}
                         <hr className="w-full bg-muted-foreground h-0.5" />
                       </ul>
-                      <form>
+                      <form action={createSubscription}>
+                        <input
+                          type="hidden"
+                          name="priceId"
+                          value={price.priceId}
+                        />
                         <StripeSubscriptionSubmissionButton />
                       </form>
                     </div>
                   </Card>
-                </>
+                </div>
               ))}
             </TabsContent>
 
             <TabsContent value="yearly" className="flex gap-x-4">
               {pricingInformation.yearly.map((price) => (
-                <>
+                <div key={price.priceId}>
                   <Card className="flex flex-col">
                     <CardContent className="py-8">
                       <div>
                         <h3 className="inline-flex px-4 py-1 rounded-full text-sm font-semibold tracking-wide uppercase bg-primary/10 text-primary">
-                          Sync Professional
+                          Sync {price.plan}
                         </h3>
                       </div>
 
                       <div className="mt-4 flex items-baseline text-6xl font-extrabold">
-                        $199.99{" "}
+                        ${price.price / 100}{" "}
                         <span className="ml-1 text-2xl text-muted-foreground">
                           /yr
                         </span>
@@ -239,12 +229,17 @@ export default async function BillingPage() {
                         ))}
                         <hr className="w-full bg-muted-foreground h-0.5" />
                       </ul>
-                      <form>
+                      <form action={createSubscription}>
+                        <input
+                          type="hidden"
+                          name="priceId"
+                          value={price.priceId}
+                        />
                         <StripeSubscriptionSubmissionButton />
                       </form>
                     </div>
                   </Card>
-                </>
+                </div>
               ))}
             </TabsContent>
           </Tabs>

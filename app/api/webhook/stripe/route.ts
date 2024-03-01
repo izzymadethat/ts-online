@@ -49,6 +49,10 @@ export async function POST(req: Request) {
         status: subscription.status,
         planId: subscription.items.data[0].plan.id,
         interval: String(subscription.items.data[0].plan.interval),
+        type:
+          subscription.items.data[0].plan.product === process.env.PRO_PRODUCT_ID
+            ? "PROFESSIONAL"
+            : "ENTERPRISE",
       },
     });
   }

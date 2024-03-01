@@ -26,12 +26,16 @@ export default async function CreateNewProjectPage() {
 
     const title = formData.get("title") as string;
     const desc = formData.get("description") as string;
+    const cost = Number(formData.get("project-cost"));
+    const date = formData.get("due-date");
 
     await prisma.project.create({
       data: {
         userId: user?.id,
         title: title,
         description: desc,
+        projectCost: cost,
+        dueDate: String(date) || null,
       },
     });
 
@@ -61,7 +65,16 @@ export default async function CreateNewProjectPage() {
             <Textarea
               name="description"
               placeholder="Describe the project. 200 characters max"
+              maxLength={200}
             />
+          </div>
+          <div className="flex flex-col gap-y-2">
+            <Label>Project Cost</Label>
+            <Input name="project-cost" placeholder="0" type="number" />
+          </div>
+          <div className="flex flex-col gap-y-2">
+            <Label>Expected Date</Label>
+            <Input name="due-date" type="date" />
           </div>
         </CardContent>
         <CardFooter className="flex justify-between">

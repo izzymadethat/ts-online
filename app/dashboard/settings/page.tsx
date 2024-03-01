@@ -113,7 +113,7 @@ export default async function SettingsPage() {
     } catch (error) {
       console.error(error);
     } finally {
-      return redirect("/");
+      return redirect("/api/auth/logout");
     }
   }
 

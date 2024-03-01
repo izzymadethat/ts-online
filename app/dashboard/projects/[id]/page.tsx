@@ -27,15 +27,99 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle, CheckCircle2, Folder } from "lucide-react";
+import { CheckCircle2, Folder, CircleOff, Trash2 } from "lucide-react";
 import Link from "next/link";
 import React from "react";
+import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
+import { redirect } from "next/navigation";
+import { supabase } from "@/app/lib/supabase";
 
-export default function ViewSingleProjectPage({
+async function getProjectInformation({
+  userId,
+  projectId,
+}: {
+  userId: string;
+  projectId: string;
+}) {
+  const projectInformation = await prisma?.project.findUnique({
+    where: {
+      id: projectId,
+      userId: userId,
+    },
+    select: {
+      title: true,
+      projectCost: true,
+      clients: true,
+      files: true,
+      isActive: true,
+      dueDate: true,
+    },
+  });
+
+  const { data } = await supabase.storage
+    .from("files")
+    .list(`project-${projectId}/${userId}`);
+
+  return { projectInformation, data };
+}
+
+async function calculateStorageSize(path: string): Promise<number> {
+  let size = 0;
+  const { data } = await supabase.storage.from("files").list(path);
+
+  if (data && data.length > 0) {
+    for (const file of data) {
+      size += file.metadata.size;
+    }
+  }
+
+  return size;
+}
+
+async function getStorageInfo({
+  userId,
+  projectId,
+}: {
+  userId: string;
+  projectId: string;
+}): Promise<number> {
+  let totalStorageSize = 0;
+
+  console.log("Initial storage size: ", totalStorageSize);
+  let path = `project-${projectId}/${userId}`;
+  const totalFromUser = await calculateStorageSize(path);
+
+  totalStorageSize += totalFromUser;
+  console.log("Storage size of user: ", totalFromUser);
+
+  path = `project-${projectId}/client-uploads`;
+  const totalFromClients = await calculateStorageSize(path);
+
+  totalStorageSize += totalFromClients;
+
+  return totalStorageSize;
+}
+
+export default async function ViewSingleProjectPage({
   params,
 }: {
   params: { id: string };
 }) {
+  const { getUser } = getKindeServerSession();
+  const user = await getUser();
+
+  if (!user) return redirect("/api/auth/login");
+
+  const { projectInformation, data } = await getProjectInformation({
+    userId: user?.id as string,
+    projectId: params.id,
+  });
+
+  const storageSize = await getStorageInfo({
+    userId: user?.id as string,
+    projectId: params.id,
+  });
+
   return (
     <div className="space-y-8">
       {/* Project Details */}
@@ -43,10 +127,21 @@ export default function ViewSingleProjectPage({
         <div className="flex flex-col justify-center">
           <div className="flex flex-col justify-center items-center lg:flex-row lg:justify-start lg:gap-2">
             <h1 className="text-3xl font-bold uppercase leading-none">
-              Test Project
+              {projectInformation?.title}
             </h1>
-            <Badge className="flex gap-1 items-center text-sm max-w-fit mb-4 lg:mt-5">
-              <CheckCircle2 className="h-5 w-5 text-white" /> InActive
+            <Badge
+              variant={projectInformation?.isActive ? "default" : "secondary"}
+              className="flex gap-1 items-center text-sm max-w-fit mb-4 lg:mt-5"
+            >
+              {projectInformation?.isActive ? (
+                <>
+                  <CheckCircle2 className="h-5 w-5 text-foreground" /> Active
+                </>
+              ) : (
+                <>
+                  <CircleOff className="h-5 w-5 text-red-500" /> Inactive
+                </>
+              )}
             </Badge>
           </div>
           <Link
@@ -72,7 +167,7 @@ export default function ViewSingleProjectPage({
                 Project Balance
               </CardTitle>
               <CardDescription className="text-2xl text-muted-foreground font-extrabold">
-                $650
+                ${projectInformation?.projectCost}
               </CardDescription>
             </div>
           </CardHeader>
@@ -82,7 +177,7 @@ export default function ViewSingleProjectPage({
             <div className="flex justify-between items-center">
               <CardTitle className="text-lg lg:text-xl">Storage</CardTitle>
               <CardDescription className="text-2xl text-muted-foreground font-extrabold">
-                250Mb
+                {(storageSize / 1024 / 1024).toFixed(2)} MB
               </CardDescription>
             </div>
           </CardHeader>
@@ -152,12 +247,36 @@ export default function ViewSingleProjectPage({
                   </Link>
                 </TableCell>
               </TableRow>
+              {data?.map((file) => (
+                <TableRow key={file.id}>
+                  <TableCell>{file.name}</TableCell>
+                  <TableCell>{file.metadata.mimetype}</TableCell>
+                  <TableCell>
+                    {new Intl.DateTimeFormat("en-US", {
+                      dateStyle: "medium",
+                    }).format(new Date(file.created_at))}
+                  </TableCell>
+                  <TableCell>
+                    <form>
+                      <input
+                        type="hidden"
+                        name="fileId"
+                        value={file.id}
+                        readOnly
+                      />
+                      <Button variant="destructive">
+                        <Trash2 className="w-4 h-4 text-white" />
+                      </Button>
+                    </form>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
 
           {/* File Uploader */}
           <div className="mt-4">
-            <ProjectFileUploader />
+            <ProjectFileUploader userId={(user.id as string) || undefined} />
           </div>
         </CardContent>
       </Card>

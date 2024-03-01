@@ -13,13 +13,26 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Trash2Icon, UploadCloud, X } from "lucide-react";
-import { useCallback, useState } from "react";
+import { Inbox, Trash2Icon, UploadCloud, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useToast } from "@/components/ui/use-toast";
+import { useParams, usePathname, useRouter } from "next/navigation";
+import prisma from "@/app/lib/db";
+import { getSignedURL, uploadFileToS3 } from "@/app/lib/aws";
+import { supabase } from "@/app/lib/supabase";
+import { ToastDescription } from "@radix-ui/react-toast";
+import { revalidatePath } from "next/cache";
 
-export default function ProjectFileUploader() {
+export default function ProjectFileUploader({
+  userId,
+}: {
+  userId?: undefined | string;
+}) {
   const { toast } = useToast();
+  const { id } = useParams();
+  const router = useRouter();
+
   const [files, setFiles] = useState<File[]>([]);
   const onDrop = useCallback((acceptedFiles: File[]) => {
     console.log(acceptedFiles);
@@ -43,6 +56,27 @@ export default function ProjectFileUploader() {
     return toast({
       description: "Files set to be uploaded have been removed",
     });
+  }
+
+  async function submitFiles(e: any) {
+    e.preventDefault();
+
+    for (const file of files) {
+      await supabase.storage
+        .from("files")
+        .upload(
+          `project-${id}/${userId ?? "client-uploads"}/${file.name}`,
+          file as File
+        );
+    }
+
+    toast({
+      description: "Files uploaded successfully!",
+    });
+
+    setFiles([]);
+
+    return router.refresh();
   }
 
   return (
@@ -105,7 +139,7 @@ export default function ProjectFileUploader() {
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              <Button className="w-fit">
+              <Button className="w-fit" onClick={(e) => submitFiles(e)}>
                 Submit {files.length > 1 ? "files" : "file"} to project
               </Button>
             </div>
@@ -121,7 +155,10 @@ export default function ProjectFileUploader() {
           {" "}
           <input {...getInputProps()} />
           {isDragActive ? (
-            <></>
+            <div className="flex flex-col items-center justify-center cursor-pointer border border-dashed rounded-md w-full py-6 space-y-1 bg-primary/20">
+              <Inbox className="h-8 w-8" />
+              <p className="font-bold max-w-xs">Add files in this zone...</p>
+            </div>
           ) : (
             <>
               <div className="flex flex-col items-center justify-center cursor-pointer border border-dashed rounded-md w-full py-6 space-y-1 hover:bg-muted-foreground/10">
@@ -133,6 +170,7 @@ export default function ProjectFileUploader() {
               <div className="text-center max-w-sm">
                 <p className="text-sm text-muted-foreground">Accepted Files:</p>
                 <ul className="text-sm text-muted-foreground mt-2 space-y-2">
+                  <li>Max 50mb PER File (Will be chang) </li>
                   <li>FLAC, WAV, MP3, PDF, PNG, JPEG, and ZIP</li>
                   <li>
                     For audio files: Since some browsers can&apos;t properly
