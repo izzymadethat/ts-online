@@ -16,6 +16,9 @@ import {
   StripePortal,
   StripeSubscriptionSubmissionButton,
 } from "@/app/components/SubmitButton";
+import { pricingInformation } from "../../constants/index.js";
+
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const featureItems = [
   {
@@ -61,7 +64,13 @@ export default async function BillingPage() {
 
   const data = await GetPaymentData(user?.id as string);
 
-  async function createSubscription() {
+  async function createSubscription({
+    plan,
+    period,
+  }: {
+    plan: string;
+    period: string;
+  }) {
     "use server";
 
     const dbUser = await prisma.user.findUnique({
@@ -77,10 +86,21 @@ export default async function BillingPage() {
     if (!dbUser?.stripeCustomerId)
       throw new Error("Stripe Customer ID not found");
 
+    let priceId;
+    if (plan === "professional" && period === "monthly") {
+      priceId = process.env.NEXT_TRAKSYNC_PRO_MONTHLY_PRICE_ID as string;
+    } else if (plan === "professional" && period === "yearly") {
+      priceId = process.env.NEXT_TRAKSYNC_PRO_YEARLY_PRICE_ID as string;
+    } else if (plan === "enterprise" && period === "monthly") {
+      priceId = process.env.NEXT_TRAKSYNC_ENTERPRISE_MONTHLY_PRICE_ID as string;
+    } else if (plan === "enterprise" && period === "yearly") {
+      priceId = process.env.NEXT_TRAKSYNC_ENTERPRISE_YEARLY_PRICE_ID as string;
+    }
+
     const subscriptionUrl = await getStripeSession({
       customerId: dbUser.stripeCustomerId,
       domainUrl: "http://localhost:3000",
-      priceId: process.env.NEXT_PUBLIC_TRAKSYNC_PRO_PRICE_ID as string,
+      priceId: priceId as string,
     });
 
     return redirect(subscriptionUrl);
@@ -134,49 +154,101 @@ export default async function BillingPage() {
           {data?.status === "active" ? "Sync Professional" : "Sync Starter"}
         </h3>
       </div>
-      <div className="max-w-md mx-auto space-y-4">
+      <div className="mx-auto space-y-4 ">
         <h2 className="text-lg text-center text-muted-foreground italic tracking-wider my-2">
           Upgrade your account to...
         </h2>
-        <Card className="flex flex-col">
-          <CardContent className="py-8">
-            <div>
-              <h3 className="inline-flex px-4 py-1 rounded-full text-sm font-semibold tracking-wide uppercase bg-primary/10 text-primary">
-                Sync Professional
-              </h3>
-            </div>
+        <div className="max-w-4xl mx-auto">
+          <Tabs defaultValue="monthly">
+            <TabsList>
+              <TabsTrigger value="monthly">Monthly</TabsTrigger>
+              <TabsTrigger value="yearly">Yearly</TabsTrigger>
+            </TabsList>
+            <TabsContent value="monthly" className="flex gap-x-4">
+              {pricingInformation.monthly.map((price) => (
+                <>
+                  <Card className="flex flex-col">
+                    <CardContent className="py-8">
+                      <div>
+                        <h3 className="inline-flex px-4 py-1 rounded-full text-sm font-semibold tracking-wide uppercase bg-primary/10 text-primary">
+                          Sync {price.plan.toUpperCase() as string}
+                        </h3>
+                      </div>
 
-            <div className="mt-4 flex items-baseline text-6xl font-extrabold">
-              $19.99{" "}
-              <span className="ml-1 text-2xl text-muted-foreground">/mo</span>
-            </div>
-            <p className="mt-5 text-lg text-muted-foreground">
-              Create more projects with more storage space
-            </p>
-          </CardContent>
-          <div className="flex-1 flex flex-col justify-between px-6 pt-6 pb-8 bg-secondary rounded-lg m-1 space-y-6 sm:p-10 sm:pt-6">
-            <ul className="space-y-4">
-              {featureItems.map((item, index) => (
-                <li key={index} className="flex items-center">
-                  <div className="flex-shrink-0">
-                    <CheckCircle2 className="h-6 w-6 text-primary" />
-                  </div>
-                  <p className="ml-3 text-base">{item.feature}</p>
-                </li>
+                      <div className="mt-4 flex items-baseline text-6xl font-extrabold">
+                        ${price.price / 100}{" "}
+                        <span className="ml-1 text-2xl text-muted-foreground">
+                          /mo
+                        </span>
+                      </div>
+                      <p className="mt-5 text-lg text-muted-foreground">
+                        Create more projects with more storage space
+                      </p>
+                    </CardContent>
+                    <div className="flex-1 flex flex-col justify-between px-6 pt-6 pb-8 bg-secondary rounded-lg m-1 space-y-6 sm:p-10 sm:pt-6">
+                      <ul className="space-y-4">
+                        {featureItems.map((item, index) => (
+                          <li key={index} className="flex items-center">
+                            <div className="flex-shrink-0">
+                              <CheckCircle2 className="h-6 w-6 text-primary" />
+                            </div>
+                            <p className="ml-3 text-base">{item.feature}</p>
+                          </li>
+                        ))}
+                        <hr className="w-full bg-muted-foreground h-0.5" />
+                      </ul>
+                      <form>
+                        <StripeSubscriptionSubmissionButton />
+                      </form>
+                    </div>
+                  </Card>
+                </>
               ))}
-              <hr className="w-full bg-muted-foreground h-0.5" />
-            </ul>
-            <form className="w-full" action={createSubscription}>
-              {data?.status === "active" ? (
-                <Button disabled className="w-full">
-                  Currently Subscribed
-                </Button>
-              ) : (
-                <StripeSubscriptionSubmissionButton />
-              )}
-            </form>
-          </div>
-        </Card>
+            </TabsContent>
+
+            <TabsContent value="yearly" className="flex gap-x-4">
+              {pricingInformation.yearly.map((price) => (
+                <>
+                  <Card className="flex flex-col">
+                    <CardContent className="py-8">
+                      <div>
+                        <h3 className="inline-flex px-4 py-1 rounded-full text-sm font-semibold tracking-wide uppercase bg-primary/10 text-primary">
+                          Sync Professional
+                        </h3>
+                      </div>
+
+                      <div className="mt-4 flex items-baseline text-6xl font-extrabold">
+                        $199.99{" "}
+                        <span className="ml-1 text-2xl text-muted-foreground">
+                          /yr
+                        </span>
+                      </div>
+                      <p className="mt-5 text-lg text-muted-foreground">
+                        Create more projects with more storage space
+                      </p>
+                    </CardContent>
+                    <div className="flex-1 flex flex-col justify-between px-6 pt-6 pb-8 bg-secondary rounded-lg m-1 space-y-6 sm:p-10 sm:pt-6">
+                      <ul className="space-y-4">
+                        {featureItems.map((item, index) => (
+                          <li key={index} className="flex items-center">
+                            <div className="flex-shrink-0">
+                              <CheckCircle2 className="h-6 w-6 text-primary" />
+                            </div>
+                            <p className="ml-3 text-base">{item.feature}</p>
+                          </li>
+                        ))}
+                        <hr className="w-full bg-muted-foreground h-0.5" />
+                      </ul>
+                      <form>
+                        <StripeSubscriptionSubmissionButton />
+                      </form>
+                    </div>
+                  </Card>
+                </>
+              ))}
+            </TabsContent>
+          </Tabs>
+        </div>
       </div>
     </div>
   );

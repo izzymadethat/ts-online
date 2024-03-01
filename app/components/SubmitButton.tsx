@@ -49,7 +49,9 @@ export function StripeSubscriptionSubmissionButton() {
           <Loader2 className="mr-2 w-4 h-4 animate-spin" /> Subscribing...
         </Button>
       ) : (
-        <Button type="submit">Subscribe to this plan</Button>
+        <Button type="submit" className="w-full">
+          Subscribe to this plan
+        </Button>
       )}
     </>
   );
