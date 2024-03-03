@@ -57,11 +57,7 @@ async function getProjectInformation({
     },
   });
 
-  const { data } = await supabase.storage
-    .from("files")
-    .list(`project-${projectId}/${userId}`);
-
-  return { projectInformation, data };
+  return { projectInformation };
 }
 
 async function calculateStorageSize(path: string): Promise<number> {
@@ -235,9 +231,9 @@ export default async function ViewSingleProjectPage({
 
             <TableBody>
               <TableRow>
-                <TableCell className="text-sm" colSpan={3}>
+                <TableCell className="text-sm" colSpan={4}>
                   <Link
-                    href={`/dashboard/projects/${params.id}/client-uploads`}
+                    href={`/project/${params.id}/client-uploads`}
                     className="flex items-center gap-2 cursor-pointer"
                   >
                     <Folder className="text-primary" />
@@ -245,23 +241,22 @@ export default async function ViewSingleProjectPage({
                   </Link>
                 </TableCell>
               </TableRow>
-              {data?.map((file) => (
+              {projectInformation?.files?.map((file) => (
                 <TableRow key={file.id}>
-                  <TableCell>{file.name}</TableCell>
-                  <TableCell>{file.metadata.mimetype}</TableCell>
+                  <TableCell>
+                    <Link href={`/project/${params.id}/track/${file.id}`}>
+                      {file.name}
+                    </Link>
+                  </TableCell>
+                  <TableCell>{file.type}</TableCell>
                   <TableCell>
                     {new Intl.DateTimeFormat("en-US", {
                       dateStyle: "medium",
-                    }).format(new Date(file.created_at))}
+                    }).format(new Date(file.dateAdded))}
                   </TableCell>
                   <TableCell>
                     <form>
-                      <input
-                        type="hidden"
-                        name="fileId"
-                        value={file.id}
-                        readOnly
-                      />
+                      <input type="text" name="fileId" value={file.id} />
                       <Button variant="destructive">
                         <Trash2 className="w-4 h-4 text-white" />
                       </Button>

@@ -4,7 +4,7 @@ import { NextApiRequest, NextApiResponse } from "next";
 import { NextRequest, NextResponse } from "next/server";
 
 function getFileInfoFromPreviewURL(url: string) {
-  const lastSlash = url.lastIndexOf("/");
+  const lastSlash = url.lastIndexOf(":");
 
   const info = url.substring(lastSlash + 1);
 
@@ -24,6 +24,8 @@ export async function POST(req: NextRequest) {
   try {
     for (const file of files) {
       Object.assign(file, { preview: URL.createObjectURL(file) });
+
+      // @ts-ignore
       const fileId = getFileInfoFromPreviewURL(file.preview as string);
 
       await prisma.file.create({
@@ -31,9 +33,8 @@ export async function POST(req: NextRequest) {
           id: fileId,
           name: file.name,
           type: file.type,
-          filePath: uid
-            ? `/projects/${projectId}/tracks/${fileId}`
-            : `/client-uploads/${file}`,
+          filePath: `/project/${projectId}/tracks/${fileId}`,
+
           uploadedBy: uid ? (uid as string) : "client",
           projectId: projectId as string,
         },

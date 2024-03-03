@@ -33,22 +33,17 @@ export default function ProjectFileUploader({
   const router = useRouter();
 
   const [files, setFiles] = useState<File[]>([]);
+  const [rejects, setRejects] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
-  const onDrop = useCallback(
-    (acceptedFiles: File[]) => {
-      acceptedFiles.map((file) =>
-        Object.assign(file, {
-          preview: URL.createObjectURL(file),
-          uploadedBy: userId ?? "client",
-        })
-      );
-      setFiles((prevFiles) => [...prevFiles, ...acceptedFiles]);
-    },
-    [userId]
-  );
+  const onDrop = useCallback((acceptedFiles: File[]) => {
+    setFiles((prevFiles) => [...prevFiles, ...acceptedFiles]);
+  }, []);
 
   //   dropzone config
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    accept: { "audio/*": [] },
+    onDrop,
+  });
 
   function removeFile(fileIndex: Number) {
     setFiles((prevFiles) => prevFiles.filter((_, i) => i !== fileIndex));
@@ -82,7 +77,6 @@ export default function ProjectFileUploader({
         files,
       };
 
-      console.log(uploadData);
       const filesUploaded = await fetch("/api/file-upload", {
         method: "POST",
         body: data,
