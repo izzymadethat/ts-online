@@ -8,18 +8,6 @@ import { revalidatePath } from "next/cache";
 import { DeleteProjectButton } from "@/app/components/SubmitButton";
 
 async function getData(userId: string) {
-  //   const data = await prisma.project.findMany({
-  //     where: {
-  //       userId: userId,
-  //     },
-  //     orderBy: {
-  //       createdAt: "desc",
-  //     },
-  //   });
-
-  //   return data;
-  // }
-
   const data = await prisma.user.findUnique({
     where: {
       id: userId,

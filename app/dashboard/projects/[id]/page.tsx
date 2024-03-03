@@ -33,6 +33,7 @@ import React from "react";
 import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { redirect } from "next/navigation";
 import { supabase } from "@/app/lib/supabase";
+import prisma from "@/app/lib/db";
 
 async function getProjectInformation({
   userId,
@@ -84,13 +85,10 @@ async function getStorageInfo({
   projectId: string;
 }): Promise<number> {
   let totalStorageSize = 0;
-
-  console.log("Initial storage size: ", totalStorageSize);
   let path = `project-${projectId}/${userId}`;
   const totalFromUser = await calculateStorageSize(path);
 
   totalStorageSize += totalFromUser;
-  console.log("Storage size of user: ", totalFromUser);
 
   path = `project-${projectId}/client-uploads`;
   const totalFromClients = await calculateStorageSize(path);

@@ -13,16 +13,15 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Inbox, Trash2Icon, UploadCloud, X } from "lucide-react";
+import { Inbox, Loader2, Trash2Icon, UploadCloud, X } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { useDropzone } from "react-dropzone";
 import { useToast } from "@/components/ui/use-toast";
 import { useParams, usePathname, useRouter } from "next/navigation";
 import prisma from "@/app/lib/db";
-import { getSignedURL, uploadFileToS3 } from "@/app/lib/aws";
 import { supabase } from "@/app/lib/supabase";
-import { ToastDescription } from "@radix-ui/react-toast";
-import { revalidatePath } from "next/cache";
+import axios from "axios";
+import { NextApiRequest } from "next";
 
 export default function ProjectFileUploader({
   userId,
@@ -34,15 +33,19 @@ export default function ProjectFileUploader({
   const router = useRouter();
 
   const [files, setFiles] = useState<File[]>([]);
-  const onDrop = useCallback((acceptedFiles: File[]) => {
-    console.log(acceptedFiles);
-    setFiles((prevFiles) => [
-      ...prevFiles,
-      ...acceptedFiles.map((file) =>
-        Object.assign(file, { preview: URL.createObjectURL(file) })
-      ),
-    ]);
-  }, []);
+  const [uploading, setUploading] = useState(false);
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      acceptedFiles.map((file) =>
+        Object.assign(file, {
+          preview: URL.createObjectURL(file),
+          uploadedBy: userId ?? "client",
+        })
+      );
+      setFiles((prevFiles) => [...prevFiles, ...acceptedFiles]);
+    },
+    [userId]
+  );
 
   //   dropzone config
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ onDrop });
@@ -61,22 +64,53 @@ export default function ProjectFileUploader({
   async function submitFiles(e: any) {
     e.preventDefault();
 
-    for (const file of files) {
-      await supabase.storage
-        .from("files")
-        .upload(
-          `project-${id}/${userId ?? "client-uploads"}/${file.name}`,
-          file as File
-        );
-    }
+    setUploading(true);
 
-    toast({
-      description: "Files uploaded successfully!",
+    const data = new FormData();
+
+    files.forEach((file) => {
+      data.append("files", file);
     });
 
-    setFiles([]);
+    data.set("uid", userId ?? "");
+    data.set("projectId", id as string);
 
-    return router.refresh();
+    try {
+      const uploadData = {
+        uid: userId ?? "",
+        projectId: id,
+        files,
+      };
+
+      console.log(uploadData);
+      const filesUploaded = await fetch("/api/file-upload", {
+        method: "POST",
+        body: data,
+      });
+
+      if (filesUploaded.status === 200) {
+        toast({
+          description: "Files uploaded successfully!",
+        });
+      } else {
+        toast({
+          title: "Uh oh! something went wrong!",
+          description: "Error uploading files, please try again.",
+        });
+      }
+
+      setFiles([]);
+
+      return router.refresh();
+    } catch (error) {
+      console.error(error);
+      toast({
+        title: "Uh oh! something went wrong!",
+        description: "Error uploading files, please try again.",
+      });
+    } finally {
+      setUploading(false);
+    }
   }
 
   return (
@@ -90,7 +124,7 @@ export default function ProjectFileUploader({
               {files?.map((file, index) => (
                 <li
                   key={index}
-                  className="flex flex-col lg:flex-row items-center p-2 rounded-xl gap-2 border"
+                  className="flex flex-col lg:flex-row items-center p-3 rounded-xl gap-2 border w-fit"
                 >
                   <Button
                     type="button"
@@ -102,7 +136,12 @@ export default function ProjectFileUploader({
                   </Button>
 
                   {/* @ts-ignore */}
-                  <p className="font-bold text-xs">{file.path}</p>
+                  <div>
+                    <p className="font-bold text-xs">{file.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {(file.size / 1024 / 1024).toFixed(2)} Mb
+                    </p>
+                  </div>
                 </li>
               ))}
             </ul>
@@ -139,9 +178,16 @@ export default function ProjectFileUploader({
                   </AlertDialogContent>
                 </AlertDialog>
               )}
-              <Button className="w-fit" onClick={(e) => submitFiles(e)}>
-                Submit {files.length > 1 ? "files" : "file"} to project
-              </Button>
+              {uploading ? (
+                <Button disabled className="w-fit">
+                  <Loader2 className="mr-2 w-4 h-4 animate-spin" /> Syncing
+                  Files...
+                </Button>
+              ) : (
+                <Button className="w-fit" onClick={(e) => submitFiles(e)}>
+                  Submit {files.length > 1 ? "files" : "file"} to project
+                </Button>
+              )}
             </div>
           )}
         </div>
@@ -167,10 +213,12 @@ export default function ProjectFileUploader({
                   Drop or click to add new files here ...
                 </p>
               </div>
-              <div className="text-center max-w-sm">
+              <div className="text-center max-w-md">
                 <p className="text-sm text-muted-foreground">Accepted Files:</p>
-                <ul className="text-sm text-muted-foreground mt-2 space-y-2">
-                  <li>Max 50mb PER File (Will be chang) </li>
+                <ul className="text-sm text-muted-foreground mt-2 space-y-3">
+                  <li>
+                    Max 50mb PER File (Will be changed in next major update){" "}
+                  </li>
                   <li>FLAC, WAV, MP3, PDF, PNG, JPEG, and ZIP</li>
                   <li>
                     For audio files: Since some browsers can&apos;t properly
