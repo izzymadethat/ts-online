@@ -34,7 +34,7 @@ model Client {
   createdBy User @relation(fields: [userId], references: [id])
   projects Project[]
   comments Comment[]
-  createdAt DateTime
+  createdAt DateTime @default(now())
 }
 
 model Project {
@@ -50,6 +50,7 @@ model Project {
   isActive Boolean @default(true)
   dueDate String?
   projectCost Int? @default(0)
+  comments Comment[]
 }
 
 model File {
@@ -69,7 +70,10 @@ model Comment {
   atTimeInSong String?
   client Client @relation(fields: [clientId], references: [id])
   clientId String
-  isCompleted Boolean
+  project Project @relation(fields: [projectId], references: [id])
+  projectId String
+  type CommentType @default(REVISION)
+  isCompleted Boolean @default(false)
   file File @relation(fields: [fileId], references: [id])
   fileId String
   text String
@@ -99,4 +103,9 @@ enum Role {
   Admin
   User
   Client
+}
+
+enum CommentType {
+  FEEDBACK
+  REVISION
 }
