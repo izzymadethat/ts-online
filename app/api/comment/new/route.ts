@@ -44,6 +44,8 @@ export async function POST(req: NextRequest) {
       },
     });
 
+    // Should i add some sort of session token to remember the client for the browser?
+
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error(error);

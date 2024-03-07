@@ -34,62 +34,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
 import { Loader2 } from "lucide-react";
-
-async function getData({
-  projectId,
-  trackId,
-}: {
-  projectId: string;
-  trackId: string;
-}) {
-  const songData = await prisma?.project.findUnique({
-    where: {
-      id: projectId,
-    },
-    select: {
-      clients: true,
-      userId: true,
-      isActive: true,
-      title: true,
-      files: {
-        where: {
-          id: trackId as string,
-        },
-        select: {
-          id: true,
-          comments: true,
-          name: true,
-          type: true,
-          uploadedBy: true,
-        },
-      },
-    },
-  });
-
-  return songData;
-}
-
-async function getPlaybackUrl({
-  projectId,
-  userId,
-  trackName,
-}: {
-  projectId: string;
-  userId?: string;
-  trackName: string;
-}) {
-  const urlFetch = await supabase.storage
-    .from("files")
-    .getPublicUrl(
-      `project-${projectId}/${userId ?? "client-uploads"}/${trackName}`
-    );
-
-  if (!urlFetch) return null;
-
-  const url = urlFetch.data.publicUrl;
-
-  return url;
-}
+import TrackPageLoader from "./TrackPageLoader";
+import { Badge } from "@/components/ui/badge";
 
 function formatTime(seconds) {
   const padTime = (num, size) => num.toString().padStart(size, "0");
@@ -101,58 +47,77 @@ function formatTime(seconds) {
 }
 
 export default function TrackClientView() {
-  const { id, trackId } = useParams();
+  const params = useParams();
   const { user } = useKindeBrowserClient();
   const { toast } = useToast();
-  const client = !user;
+  const [loading, setLoading] = useState(false);
   const [project, setProject] = useState(null);
-  const [track, setTrack] = useState(null);
-  const [streamUrl, setStreamUrl] = useState("");
+  const [track, setTrack] = useState({ song: null, url: "" });
   const [currentTime, setCurrentTime] = useState(0);
 
-  // get client information
   const [clientName, setClientName] = useState("");
   const [clientEmail, setClientEmail] = useState("");
+  const [client, setClient] = useState(null);
   const [comment, setComment] = useState("");
   const [isATimeStampedComment, setIsATimeStampedComment] = useState(true);
   const [commentUploading, setCommentUploading] = useState(false);
 
   const audioRef = useRef(null);
-  const data = useMemo(() => {
-    const formData = new FormData();
-    formData.set("projectId", id as string);
-    formData.set("trackId", trackId as string);
-
-    return formData;
-  }, [id, trackId]);
 
   useEffect(() => {
-    const fetchSongData = async () => {
-      const response = await fetch("/api/get-song-data", {
-        method: "POST",
-        body: data,
-      });
+    setLoading(true);
 
-      if (response.ok) {
-        const songResult = await response.json();
+    async function fetchTrackData() {
+      try {
+        const res = await fetch(
+          `/api/track?projectId=${params.id}&trackId=${params.trackId}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: user?.id || {
+                name: clientName,
+                email: clientEmail,
+              },
+            },
+          }
+        );
+        if (!res.ok)
+          throw new Error("Could not find project or project details");
 
-        setProject(songResult.songData);
-        setTrack(songResult.songData.files[0]);
-        if (songResult.trackUrl) {
-          setStreamUrl(songResult.trackUrl);
-        }
+        const projectFetch = await res.json();
+        // console.log(projectFetch.status); //-- shows correct data --
+        if (projectFetch.status !== 200)
+          throw Error(
+            "Couldn't find any data matching project. Please check details",
+            { cause: projectFetch.message as string }
+          );
+
+        // variables for found data
+        const projectData = projectFetch.data.project;
+        const streamUrlData = projectFetch.data.streamUrl;
+        const song = projectFetch.data.project.files[0];
+
+        // console.log(song, streamUrlData); // -- shows correct data
+
+        setProject(projectData);
+        setTrack({ song: song, url: streamUrlData });
+        console.log(song);
+      } catch (error) {
+        console.error(
+          error,
+          `Reason for error: ${error.cause as unknown as string}`
+        );
+        toast({
+          title: "Uh Oh! Something went wrong...",
+          description: "Could not get song. Please try again",
+        });
+      } finally {
+        setLoading(false);
       }
-    };
+    }
 
-    const interval = setInterval(() => {
-      if (audioRef.current) {
-        setCurrentTime(audioRef.current.audioEl.current.currentTime);
-      }
-    }, 1000);
-
-    fetchSongData();
-    return () => clearInterval(interval);
-  }, [data]);
+    fetchTrackData();
+  }, []);
 
   async function handleSubmitComment(e: any) {
     e.preventDefault();
@@ -164,8 +129,8 @@ export default function TrackClientView() {
       timeInSong: isATimeStampedComment ? formatTime(currentTime) : undefined,
       email: clientEmail,
       comment: comment,
-      projectId: id,
-      fileId: trackId,
+      projectId: params.id,
+      fileId: params.trackId,
       type: isATimeStampedComment ? "REVISION" : "FEEDBACK",
       userId: user?.id || (project?.userId as string),
     };
@@ -195,6 +160,8 @@ export default function TrackClientView() {
       }
 
       // Find a way to set cookies to remember name and email.
+      localStorage.setItem("client-name", clientName);
+      localStorage.setItem("client-email", clientEmail);
 
       setComment("");
     } catch (error) {
@@ -210,134 +177,178 @@ export default function TrackClientView() {
     }
   }
 
+  async function handleCompleteTask(id: string) {
+    return toast({
+      title: "WOOHOO!",
+      description: `Task completed!`,
+    });
+  }
+
   return (
-    <div className="container mx-auto max-w-7xl">
-      <div className="flex flex-col justify-center items-center">
-        <h1 className="text-3xl font-bold leading-6">
-          {track?.name.replace(/_/g, " ").split(".")[0]}
-        </h1>
-        <h3 className="text-lg text-muted-foreground">
-          {" "}
-          from {project?.title}
-        </h3>
-        <div className="flex gap-4 items-center font-semibold mt-4">
-          {client && (
-            <Button className="uppercase" disabled>
-              Pay Balance
-            </Button>
-          )}
-          {user && (
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button className="uppercase">Show all revisions</Button>
-              </SheetTrigger>
-              <SheetContent>
-                <SheetTitle>Revisions</SheetTitle>
-                <SheetDescription>
-                  Comments from your clients that have been submitted for
-                  review. Once you have completed the request, simply check it
-                  off. They will be notified of your completion
-                </SheetDescription>
-                <div className="mt-4">
-                  <h2 className="text-lg/relaxed underline">Harry</h2>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <Checkbox />
-                      <Label>Can you take out the drums here?</Label>
+    <>
+      {loading ? (
+        <TrackPageLoader />
+      ) : (
+        <div className="container mx-auto max-w-7xl">
+          <div className="flex flex-col justify-center items-center">
+            <h1 className="text-3xl font-bold leading-6">
+              Test
+              {track?.name?.replace(/_/g, " ").split(".")[0]}
+            </h1>
+            <h3 className="text-lg text-muted-foreground">
+              {" "}
+              from {project?.title}
+            </h3>
+            <div className="flex gap-4 items-center font-semibold mt-4">
+              {client && (
+                <Button className="uppercase" disabled>
+                  Pay Balance
+                </Button>
+              )}
+              {user && (
+                <Sheet>
+                  <SheetTrigger asChild>
+                    <Button className="uppercase">Show all revisions</Button>
+                  </SheetTrigger>
+                  <SheetContent className="max-h-screen overflow-y-auto">
+                    <SheetTitle>Revisions</SheetTitle>
+                    <SheetDescription>
+                      Comments from your clients that have been submitted for
+                      review. Once you have completed the request, simply check
+                      it off. They will be notified of your completion
+                    </SheetDescription>
+
+                    {track?.song?.comments?.map((comment, index) => (
+                      <div key={index} className="mt-4">
+                        <div className="flex items-center gap-4">
+                          <h2 className="text-lg/relaxed underline">
+                            {comment.client.name}
+                          </h2>
+                          {comment.type === "REVISION" ? (
+                            <Badge className="text-sm">Revision</Badge>
+                          ) : (
+                            <Badge className="text-sm">Feedback</Badge>
+                          )}
+                          {comment.atTimeInSong && (
+                            <span className="text-sm text-muted-foreground">
+                              @{comment.atTimeInSong}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-4">
+                          <form>
+                            <input type="text" value={comment.id} />
+                            <div className="flex items-center gap-2">
+                              {comment.type === "REVISION" && (
+                                <Checkbox
+                                  defaultChecked={
+                                    comment.isCompleted as boolean
+                                  }
+                                  onCheckedChange={() =>
+                                    handleCompleteTask(comment.id)
+                                  }
+                                />
+                              )}
+                              <p className="leading-5 max-w-xs">
+                                {comment.text}
+                              </p>
+                            </div>
+                          </form>
+                        </div>
+                      </div>
+                    ))}
+
+                    {client && (
+                      <>
+                        {/* Show only the comments of the client */}
+                        <div>Client Comment</div>
+                      </>
+                    )}
+
+                    {/* Option to check all */}
+                  </SheetContent>
+                </Sheet>
+              )}
+            </div>
+          </div>
+          {/* Feedback Card */}
+          <div className="mt-8 max-w-2xl mx-auto">
+            <ReactAudioPlayer
+              src={track.url}
+              ref={audioRef}
+              controls
+              className="w-full my-4"
+            />
+            {client && (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-center">Thoughts?</CardTitle>
+                </CardHeader>
+
+                <form onSubmit={handleSubmitComment}>
+                  <CardContent>
+                    <div className="flex flex-col space-y-6">
+                      <Input
+                        defaultValue={clientName}
+                        name="client-name"
+                        placeholder="Your name"
+                        value={clientName}
+                        onChange={(e) => setClientName(e.target.value)}
+                        required
+                      />
+                      <Input
+                        defaultValue={clientEmail}
+                        name="client-email"
+                        placeholder="Your email"
+                        value={clientEmail}
+                        onChange={(e) => setClientEmail(e.target.value)}
+                        required
+                      />
+                      <Textarea
+                        name="client-feedback"
+                        placeholder="Enter your thoughts for this track (200 char max)"
+                        value={comment}
+                        onChange={(e) => setComment(e.target.value)}
+                        maxLength={200}
+                        required
+                      />
+
+                      <div className="flex justify-between items-center">
+                        <div className="flex gap-2">
+                          <Checkbox
+                            checked={isATimeStampedComment}
+                            onCheckedChange={() =>
+                              setIsATimeStampedComment(
+                                (prevValue) => !prevValue
+                              )
+                            }
+                            value={formatTime(currentTime)}
+                            name="timestamp"
+                          />
+                          <Label>
+                            Leave a comment at {formatTime(currentTime)}
+                          </Label>
+                        </div>
+                        {/* Submit button */}
+                        {commentUploading ? (
+                          <Button className="self-end" disabled>
+                            <Loader2 className="h-4 2-4 mr-2 animate-spin" />{" "}
+                            Submitting your comment...
+                          </Button>
+                        ) : (
+                          <Button className="self-end" type="submit">
+                            Submit Comment
+                          </Button>
+                        )}
+                      </div>
                     </div>
-
-                    <span className="text-sm text-muted-foreground">
-                      @00:36
-                    </span>
-                  </div>
-                </div>
-                <div className="mt-4">
-                  <h2 className="text-lg/relaxed underline">Harry</h2>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-1">
-                      <Checkbox />
-                      <Label>Can you take out the drums here?</Label>
-                    </div>
-
-                    <span className="text-sm text-muted-foreground">
-                      @ 00:36
-                    </span>
-                  </div>
-
-                  {/* Option to check all */}
-                </div>
-              </SheetContent>
-            </Sheet>
-          )}
+                  </CardContent>
+                </form>
+              </Card>
+            )}
+          </div>
         </div>
-      </div>
-      {/* Feedback Card */}
-      <div className="mt-8 max-w-2xl mx-auto">
-        <ReactAudioPlayer
-          src={streamUrl}
-          ref={audioRef}
-          controls
-          className="w-full my-4"
-        />
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-center">Thoughts?</CardTitle>
-          </CardHeader>
-
-          <form onSubmit={handleSubmitComment}>
-            <CardContent>
-              <div className="flex flex-col space-y-6">
-                <Input
-                  name="client-name"
-                  placeholder="Your name"
-                  value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
-                  required
-                />
-                <Input
-                  name="client-email"
-                  placeholder="Your email"
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                  required
-                />
-                <Textarea
-                  name="client-feedback"
-                  placeholder="Enter your thoughts for this track (200 char max)"
-                  value={comment}
-                  onChange={(e) => setComment(e.target.value)}
-                  maxLength={200}
-                  required
-                />
-                <div className="flex justify-between items-center">
-                  <div className="flex gap-2">
-                    <Checkbox
-                      checked={isATimeStampedComment}
-                      onCheckedChange={() =>
-                        setIsATimeStampedComment((prevValue) => !prevValue)
-                      }
-                      value={formatTime(currentTime)}
-                      name="timestamp"
-                    />
-                    <Label>Leave a comment at {formatTime(currentTime)}</Label>
-                  </div>
-                  {/* Submit button */}
-                  {commentUploading ? (
-                    <Button className="self-end" disabled>
-                      <Loader2 className="h-4 2-4 mr-2 animate-spin" />{" "}
-                      Submitting your comment...
-                    </Button>
-                  ) : (
-                    <Button className="self-end" type="submit">
-                      Submit Comment
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </CardContent>
-          </form>
-        </Card>
-      </div>
-    </div>
+      )}
+    </>
   );
 }
