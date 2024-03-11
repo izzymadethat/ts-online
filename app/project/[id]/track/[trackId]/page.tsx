@@ -1,127 +1,78 @@
 "use client";
 
-import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
-import prisma from "@/app/lib/db";
-import { supabase } from "@/app/lib/supabase";
-import { redirect } from "next/navigation";
+import { getData } from "@/app/lib/actions";
+
+import { useParams, useRouter } from "next/navigation";
 import CommentsSidebar from "@/app/components/track-view/CommentsSidebar";
 import AudioPlayer from "@/app/components/track-view/AudioPlayer";
 import CommentForm from "@/app/components/track-view/CommentForm";
 import ProjectPaymentButton from "@/app/components/track-view/ProjectPaymentButton";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
+import { useEffect, useState } from "react";
 
-async function getPlaybackUrl({
-  projectId,
-  userId,
-  trackName,
-}: {
-  projectId: string;
-  userId: string;
-  trackName: string;
-}) {
-  const urlFetch = supabase.storage
-    .from("files")
-    .getPublicUrl(`project-${projectId}/${userId}/${trackName}`);
-
-  if (!urlFetch) return null;
-
-  const url = urlFetch.data.publicUrl;
-
-  return url;
-}
-
-export async function getData({
-  projectId,
-  trackId,
-}: {
-  projectId: string;
-  trackId: string;
-}) {
-  const project = await prisma.project.findUnique({
-    where: {
-      id: projectId,
-    },
-
-    select: {
-      title: true,
-      user: true,
-      clients: true,
-      files: {
-        where: {
-          id: trackId,
-        },
-
-        select: {
-          id: true,
-          name: true,
-          type: true,
-          uploadedBy: true,
-          comments: {
-            select: {
-              id: true,
-              client: true,
-              atTimeInSong: true,
-              clientId: true,
-              isCompleted: true,
-              text: true,
-              type: true,
-              createdAt: true,
-              updatedAt: true,
-            },
-          },
-        },
-      },
-      isActive: true,
-    },
-  });
-
-  if (!project || !project.files) {
-    return null;
-  }
-
-  // const streamUrl = await getPlaybackUrl({
-  //   projectId,
-  //   userId: project.user.id,
-  //   trackName: project.files[0].name,
-  // });
-
-  const streamUrl = "Sample stream url";
-
-  // if (!streamUrl) return null;
-
-  const data = {
-    project,
-    streamUrl,
-    trackId,
-  };
-
-  return data;
-}
-
-export default function TrackPage({
-  params,
-}: {
-  params: { id: string; trackId: string };
-}) {
+export default function TrackPage() {
+  const router = useRouter();
+  const params = useParams();
   const { user } = useKindeBrowserClient();
-  const client = !user;
 
-  console.log(params.id, params.trackId);
+  const [track, setTrack] = useState(null);
+  const [client, setClient] = useState({ client_name: "", client_email: "" });
+  const [loading, setLoading] = useState(false);
 
-  const track = await getData({
-    projectId: params.id,
-    trackId: params.trackId,
-  });
+  useEffect(() => {
+    setLoading(true);
+    async function fetchTrackData() {
+      try {
+        const { id, trackId } = params;
 
-  if (!track) return redirect("/dashboard/projects");
+        const res = await fetch(
+          `/api/track?projectId=${id}&trackId=${trackId}`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: user?.id || client.client_email,
+              "Content-Type": "application/json",
+            },
+          }
+        );
 
-  const isProjectCreator = user?.id === track.project.user.id;
-  const trackName = track.project.files[0].name;
+        if (!res.ok) throw new Error(res.message);
 
-  const existingClient = {
-    client_name: localStorage.getItem("client-name"),
-    client_email: localStorage.getItem("client-email"),
-  };
+        const trackData = await res.json();
+
+        if (!trackData.data) {
+          return router.push("/dashboard/projects");
+        } else {
+          setTrack(trackData.data);
+        }
+      } catch (error) {
+        console.log("Error fetching track data: ", error);
+      }
+    }
+
+    function checkIfClientStored() {
+      const existingClient = {
+        client_name: localStorage.getItem("client-name"),
+        client_email: localStorage.getItem("client-email"),
+      };
+
+      if (!existingClient) {
+        setClient({ client_name: "", client_email: "" });
+      } else {
+        setClient({
+          client_name: existingClient.client_name as string,
+          client_email: existingClient.client_email as string,
+        });
+      }
+    }
+
+    fetchTrackData();
+    checkIfClientStored();
+    setLoading(false);
+  }, []);
+
+  const isProjectCreator = user?.id === track?.project.user.id;
+  const trackName = track?.project.files[0].name;
 
   // ============= FUNCTIONS ===============
 
@@ -145,6 +96,8 @@ export default function TrackPage({
     }
   }
 
+  if (loading) return "Loading...";
+
   return (
     <div>
       <div>
@@ -153,7 +106,7 @@ export default function TrackPage({
             ? trackName?.replace(/_/g, " ").split(".")[0]
             : "Name not set"}
         </h1>
-        <h3>From {track.project.title}</h3>
+        <h3>From {track?.project.title}</h3>
 
         <div>
           {/* Payment button */}
@@ -166,14 +119,11 @@ export default function TrackPage({
 
           <div>
             {/* Audio Player */}
-            <AudioPlayer source={track.streamUrl} />
+            <AudioPlayer source={track?.streamUrl || ""} />
 
             {/* Client Comment Form */}
             {client && (
-              <CommentForm
-                onSubmit={submitComment}
-                existingClient={existingClient || null}
-              />
+              <CommentForm onSubmit={submitComment} existingClient={client} />
             )}
           </div>
         </div>

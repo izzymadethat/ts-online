@@ -2,12 +2,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@radix-ui/react-checkbox";
+import { Checkbox } from "@/components/ui/checkbox";
 import React from "react";
 import { CommentSubmitButton } from "../SubmitButton";
 
 type Props = {
-  onSubmit: () => void;
+  onSubmit: (formData: FormData) => void;
   existingClient?: {
     client_name: string;
     client_email: string;
@@ -36,7 +36,7 @@ export default function CommentForm({ onSubmit, existingClient }: Props) {
           />
           <Textarea
             name="client-comment"
-            placeholder="Enter your thoughts (200 characters max"
+            placeholder="Enter your thoughts (200 characters max)"
             maxLength={200}
             required
           />
