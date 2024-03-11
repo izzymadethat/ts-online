@@ -256,7 +256,7 @@ export default async function ViewSingleProjectPage({
                   </TableCell>
                   <TableCell>
                     <form>
-                      <input type="text" name="fileId" value={file.id} />
+                      <input type="text" name="fileId" defaultValue={file.id} />
                       <Button variant="destructive">
                         <Trash2 className="w-4 h-4 text-white" />
                       </Button>

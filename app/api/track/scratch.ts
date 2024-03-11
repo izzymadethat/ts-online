@@ -7,9 +7,9 @@ export async function GET(request: NextRequest) {
   // 1. get project and track id parameters from request --done
   // --- get authorization from headers to determine if user or client ---
   // 2. throw them into variables --done
-  // 3. use those variables to retrieve data about the project from the database
-  // 4. retrieve stream url from supabase storage sdk
-  // 5. return all information as one JSON response
+  // 3. use those variables to retrieve data about the project from the database --done
+  // 4. retrieve stream url from supabase storage sdk --done
+  // 5. return all information as one JSON response --done
   /*
     const searchParams = request.nextUrl.searchParams
     const projectId = searchParams.get("projectId")

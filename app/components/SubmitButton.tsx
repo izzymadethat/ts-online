@@ -108,3 +108,21 @@ export function DeleteProjectButton() {
     </>
   );
 }
+
+export function CommentSubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <>
+      {pending ? (
+        <Button variant="destructive" size="icon" disabled>
+          <Loader2 className="w-4 h-4 animate-spin" /> Sending Comment...
+        </Button>
+      ) : (
+        <Button type="submit" className="w-fit">
+          Submit Comment
+        </Button>
+      )}
+    </>
+  );
+}
