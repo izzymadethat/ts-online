@@ -8,16 +8,40 @@ import AudioPlayer from "@/app/components/track-view/AudioPlayer";
 import CommentForm from "@/app/components/track-view/CommentForm";
 import ProjectPaymentButton from "@/app/components/track-view/ProjectPaymentButton";
 import { useKindeBrowserClient } from "@kinde-oss/kinde-auth-nextjs";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import ReactAudioPlayer from "react-audio-player";
+
+function formatTime(time: number) {
+  // take in the current time -- will be in seconds & milliseconds
+  // it may be best to initially round to a whole number
+  // if the time divided into 60 gives 1, then a minute has passed. it should set the seconds to zero then minutes += 1
+  // we should floor any seconds evenly divisible by 60
+
+  const padTime = (num: number, size: number) =>
+    num.toString().padStart(size, "0");
+
+  const minutes = Math.floor(time / 60);
+  const seconds = Math.floor(time % 60);
+
+  return `${padTime(minutes, 2)}:${padTime(seconds, 2)}`;
+}
 
 export default function TrackPage() {
   const router = useRouter();
   const params = useParams();
   const { user } = useKindeBrowserClient();
+  const client = !user;
 
   const [track, setTrack] = useState(null);
-  const [client, setClient] = useState({ client_name: "", client_email: "" });
+  const [currentTime, setCurrentTime] = useState(0);
+  const [existingClient, setExistingClient] = useState({
+    client_name: "",
+    client_email: "",
+  });
+  const [isATimeStampedComment, setIsATimeStampedComment] = useState(true);
   const [loading, setLoading] = useState(false);
+
+  const audioRef = useRef(null);
 
   useEffect(() => {
     setLoading(true);
@@ -57,9 +81,9 @@ export default function TrackPage() {
       };
 
       if (!existingClient) {
-        setClient({ client_name: "", client_email: "" });
+        setExistingClient({ client_name: "", client_email: "" });
       } else {
-        setClient({
+        setExistingClient({
           client_name: existingClient.client_name as string,
           client_email: existingClient.client_email as string,
         });
@@ -70,6 +94,13 @@ export default function TrackPage() {
     checkIfClientStored();
     setLoading(false);
   }, []);
+
+  useEffect(() => {
+    const audioElement = audioRef.current.audioEl;
+    setInterval(() => {
+      setCurrentTime(audioElement.current.currentTime);
+    }, 1000);
+  }, [currentTime]);
 
   const isProjectCreator = user?.id === track?.project.user.id;
   const trackName = track?.project.files[0].name;
@@ -88,12 +119,24 @@ export default function TrackPage() {
       projectId: params.id,
       trackId: params.trackId,
       userId: track?.project.user.id,
+      timestamp:
+        isATimeStampedComment && currentTime > 0
+          ? formatTime(currentTime)
+          : undefined,
     };
 
     if (typeof window !== "undefined") {
       localStorage.setItem("client-name", clientName as string);
       localStorage.setItem("client-email", clientEmail as string);
     }
+
+    console.log(newComment);
+
+    router.refresh();
+  }
+
+  function handleCheckedChange() {
+    setIsATimeStampedComment((prevValue) => !prevValue);
   }
 
   if (loading) return "Loading...";
@@ -119,11 +162,22 @@ export default function TrackPage() {
 
           <div>
             {/* Audio Player */}
-            <AudioPlayer source={track?.streamUrl || ""} />
+            <ReactAudioPlayer
+              src={track?.streamUrl}
+              ref={audioRef}
+              controls
+              className="w-full"
+            />
 
             {/* Client Comment Form */}
             {client && (
-              <CommentForm onSubmit={submitComment} existingClient={client} />
+              <CommentForm
+                onSubmit={submitComment}
+                existingClient={existingClient || client}
+                isTimeStampedComment={isATimeStampedComment}
+                timestamp={formatTime(currentTime) || undefined}
+                onCheckedChange={handleCheckedChange}
+              />
             )}
           </div>
         </div>

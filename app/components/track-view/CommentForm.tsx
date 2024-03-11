@@ -12,9 +12,18 @@ type Props = {
     client_name: string;
     client_email: string;
   };
+  timestamp?: string | undefined;
+  isTimeStampedComment: boolean;
+  onCheckedChange: () => void;
 };
 
-export default function CommentForm({ onSubmit, existingClient }: Props) {
+export default function CommentForm({
+  onSubmit,
+  existingClient,
+  timestamp,
+  isTimeStampedComment,
+  onCheckedChange,
+}: Props) {
   return (
     <Card>
       <CardHeader>
@@ -43,8 +52,12 @@ export default function CommentForm({ onSubmit, existingClient }: Props) {
 
           <div>
             <div>
-              <Checkbox name="comment-timestamp" />
-              <Label>Leave a comment @</Label>
+              <Checkbox
+                name="comment-timestamp"
+                checked={isTimeStampedComment}
+                onCheckedChange={onCheckedChange}
+              />
+              <Label>Leave a comment @ {timestamp} </Label>
             </div>
 
             <CommentSubmitButton />

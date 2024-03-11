@@ -115,7 +115,7 @@ export function CommentSubmitButton() {
   return (
     <>
       {pending ? (
-        <Button variant="destructive" size="icon" disabled>
+        <Button variant="destructive" size="icon" disabled className="w-fit">
           <Loader2 className="w-4 h-4 animate-spin" /> Sending Comment...
         </Button>
       ) : (
