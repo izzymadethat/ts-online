@@ -19,6 +19,7 @@ model User {
   name String?
   email String
   stripeCustomerId String? @unique
+  stripeAccountId String? @unique
   profileImage String?
   projects Project[]
   clients Client[]

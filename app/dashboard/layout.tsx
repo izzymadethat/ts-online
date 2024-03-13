@@ -25,6 +25,7 @@ async function getData({
     select: {
       id: true,
       stripeCustomerId: true,
+      stripeAccountId: true,
     },
   });
 
@@ -51,6 +52,22 @@ async function getData({
       },
       data: {
         stripeCustomerId: data.id,
+      },
+    });
+  }
+
+  if (!user?.stripeAccountId) {
+    const account = await stripe.accounts.create({
+      type: "standard",
+      email: email,
+    });
+
+    await prisma.user.update({
+      where: {
+        id: id,
+      },
+      data: {
+        stripeAccountId: account.id,
       },
     });
   }

@@ -13,7 +13,11 @@ import { getKindeServerSession } from "@kinde-oss/kinde-auth-nextjs/server";
 import { LogoutLink } from "@kinde-oss/kinde-auth-nextjs/components";
 import { redirect } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { DeleteButton, SubmitButton } from "@/app/components/SubmitButton";
+import {
+  AccountOnboardingButton,
+  DeleteButton,
+  SubmitButton,
+} from "@/app/components/SubmitButton";
 import { unstable_noStore as noStore, revalidatePath } from "next/cache";
 import Link from "next/link";
 import { stripe } from "@/app/lib/stripe";
@@ -31,6 +35,7 @@ async function getData(userId: string) {
       name: true,
       email: true,
       stripeCustomerId: true,
+      stripeAccountId: true,
     },
   });
 
@@ -42,8 +47,6 @@ export default async function SettingsPage() {
 
   const user = await getUser();
   const accessToken = await getAccessToken();
-
-  console.log(user?.id, accessToken);
 
   if (!user) {
     return redirect("/");
@@ -92,6 +95,20 @@ export default async function SettingsPage() {
     }
   }
 
+  async function redirectToStripeOnboarding(formData: FormData) {
+    "use server";
+
+    const accountId = formData.get("stripe-account");
+    const accountLink = await stripe.accountLinks.create({
+      account: accountId as string,
+      return_url: "http://localhost:3000/account-update/return",
+      refresh_url: "http://localhost:3000/refreshed",
+      type: "account_onboarding",
+    });
+
+    return redirect(accountLink.url);
+  }
+
   async function deleteUser(formData: FormData) {
     "use server";
     try {
@@ -125,6 +142,35 @@ export default async function SettingsPage() {
           <p className="text-lg text-muted-foreground">Your Profile Settings</p>
         </div>
       </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-5xl text-center">
+            VERY IMPORTANT!!!
+          </CardTitle>
+          <CardDescription className="text-center">
+            Please set up your stripe onboarding to start accepting payments
+            from your clients
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <p className="text-center">
+            Set up your onboarding account with Stripe so that you can accept
+            payments from your clients!
+          </p>
+        </CardContent>
+        <CardFooter>
+          <form action={redirectToStripeOnboarding} className="w-full">
+            <input
+              type="text"
+              name="stripe-account"
+              value={data?.stripeAccountId as string}
+              readOnly
+            />
+            <AccountOnboardingButton />
+          </form>
+        </CardFooter>
+      </Card>
 
       <Card>
         <form action={postData}>
@@ -176,6 +222,7 @@ export default async function SettingsPage() {
           </div>
         </CardHeader>
       </Card>
+
       <Card>
         <CardHeader>
           <div className="flex flex-col md:flex-row justify-between items-center gap-x-5">

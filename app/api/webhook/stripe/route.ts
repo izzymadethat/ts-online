@@ -4,6 +4,7 @@ import { stripe } from "@/app/lib/stripe";
 import { headers } from "next/headers";
 import Stripe from "stripe";
 import prisma from "@/app/lib/db";
+import { NextResponse } from "next/server";
 
 export async function POST(req: Request) {
   const body = await req.text();
@@ -73,6 +74,21 @@ export async function POST(req: Request) {
         status: subscription.status,
       },
     });
+  }
+
+  // Check that user has completed account onboarding
+  if (event.type === "account.updated") {
+    let accountDetails = event.data;
+    const accountUpdated = await stripe.accounts.retrieve(
+      accountDetails.object
+    );
+
+    if (accountUpdated) {
+      return NextResponse.json(
+        { message: "User account updated and ready for payments" },
+        { status: 204 }
+      );
+    }
   }
 
   return new Response(null, { status: 200 });

@@ -126,3 +126,22 @@ export function CommentSubmitButton() {
     </>
   );
 }
+
+export function AccountOnboardingButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <>
+      {pending ? (
+        <Button className="w-full">
+          <Loader2 className="w-4 h-4 animate-spin" /> Calling to Stripe
+          Onboarding...
+        </Button>
+      ) : (
+        <Button className="w-full" type="submit">
+          Set Up or Connect Your Stripe Account
+        </Button>
+      )}
+    </>
+  );
+}
