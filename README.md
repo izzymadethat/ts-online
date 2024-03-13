@@ -1,36 +1,97 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+All of the details of building out TrakSync. I plan on using NextJS for it's simple routing and server side design.
 
-## Getting Started
+## Features
 
-First, run the development server:
+### Project Collaboration:
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+When a user creates a project, the project is then shared between whoever they send the link to. Those who view as a client will have read-only access to the project except for the client uploads folder which is provided upon creation. The client does not need to be authenticated in order to upload and view the files in the project. Only a name is needed to identify the client.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### TimeStamped Comments from Client:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+While listening to a song on the project, the client will be able to make a comment on the song at the moment of discrepancy. This will allow the user to know exactly where to make changes, and what changes are requested to be made.
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+### Revision History and Checklist:
 
-## Learn More
+When a client submits a comment, whether timestamped or just general feedback, then a to-do list style comment and revision history section is generated. The comment is stored in the database under the client's name. The comment created by the client can be edited so long as the comment has NOT been marked for completion. Each comment is displayed for the creator of the project as read-only. When the user feels they have met the requirement s of the comment, they can mark the comment as completed.
 
-To learn more about Next.js, take a look at the following resources:
+The client will be able to view the completed comments as well as comments that have been generated from other clients of the project. The creator of the project is the only person that can mark comments as completed once done.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### Paywall for Completed Files:
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+During project creation, the user has the option to set a project total for the services rendered during completion of the project. A client's action of uploading is their agreement to the user that they understand that payment is needed in order to download any completed files.
 
-## Deploy on Vercel
+## Tech Stack:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+- NextJs
+- Prisma
+- Supabase
+- Stripe for User Sign Up
+- Stripe Connect to help Users get paid for their services
+- Kinde Authentication
+- React-Player
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+## Navigation
+
+The routes and server functions once the user or client has navigated.
+
+### _Authentication_
+
+| Task     | Client Route      | Api Route             |
+| -------- | ----------------- | --------------------- |
+| sign in  | /api/auth/sign-in | handled by kinde auth |
+| sign out | /api/auth/logout  | handled by kinde auth |
+| sign up  | /api/auth/sign-up | handled by kinde auth |
+
+### _Projects_
+
+| Task                | Client Route                  | Api Route(s)                   |
+| ------------------- | ----------------------------- | ------------------------------ |
+| create a project    | /dashboard/projects/new       | none                           |
+| view all projects   | /dashboard/projects/          | none                           |
+| view single project | /dashboard/projects/[id]      | none                           |
+| update a project    | /dashboard/projects/[id]/edit | none                           |
+| delete a project    |                               | none                           |
+| listen to a track   | /project/[id]/track/[name]    | /api/track?:projectId&:trackId |
+
+### _Services_
+
+| Task                       | Client Route       | Api Route         |
+| -------------------------- | ------------------ | ----------------- |
+| view payments made to user | /payments          | none              |
+| view user profile          | /dashboard/profile | none              |
+| setup billing details      | /dashboard/billing | handled by Stripe |
+| view all clients           | /clients           | none              |
+
+---
+
+## Forms
+
+This section is a collection of forms that can be submitted through TrakSync.
+
+### _Projects_
+
+#### Create a new project:
+
+- Title
+- Description
+- Project Cost
+- Due Date
+
+#### Update a project:
+
+- All fields from create new project filled in with data
+- Project Status
+  - active
+  - on hold
+  - completed
+  - in active
+
+---
+
+### _Files_
+
+- A drag and drop form to upload files and folders
+- For each file, have a selection choice if "Final, Revision, or Draft"
+- For each file in files, If the file is submitted final or revision, and the project has a balance and the balance has not been paid in full, disable download button for client
+- Else also, if the file is submitted as draft, do not allow client to view file(s), but only the authenticated user
+- Every file upload should also have the ability to be deleted before and after submission
